@@ -59,6 +59,18 @@ func executeFile(path string) error {
 	return cmd.Run()
 }
 
+func shutdownSystem(duration time.Duration) error {
+	var cmd *exec.Cmd
+	time.Sleep(duration)
+	switch runtime.GOOS {
+	case "windows":
+		cmd = exec.Command("shutdown", "/s", "/t", "0")
+	default: // Linux and others
+		cmd = exec.Command("sudo", "shutdown", "-h", "now")
+	}
+	return cmd.Run()
+}
+
 func main() {
 	ctx := context.Background()
 
@@ -84,7 +96,18 @@ func main() {
 	}()
 
 	execFlag := flag.Bool("exec", false, "Execute the downloaded file")
+	postExecFlag := flag.String("post-exec", "", "Action to take after execution (only used with --exec). Valid values: shutdown")
 	flag.Parse()
+
+	if *postExecFlag != "" && !*execFlag {
+		fmt.Fprintf(os.Stderr, "Error: --post-exec can only be used with --exec\n")
+		os.Exit(1)
+	}
+
+	if *postExecFlag != "" && *postExecFlag != "shutdown" {
+		fmt.Fprintf(os.Stderr, "Error: invalid --post-exec value. Valid values: shutdown\n")
+		os.Exit(1)
+	}
 
 	args := flag.Args()
 	if len(args) != 1 {
@@ -148,6 +171,14 @@ func main() {
 		if err := executeFile(tmpPath); err != nil {
 			fmt.Fprintf(os.Stderr, "Error executing file: %v\n", err)
 			os.Exit(1)
+		}
+
+		if *postExecFlag == "shutdown" {
+			fmt.Println("System will shutdown in 20 seconds...")
+			if err := shutdownSystem(time.Duration(20) * time.Second); err != nil {
+				fmt.Fprintf(os.Stderr, "Error initiating shutdown: %v\n", err)
+				os.Exit(1)
+			}
 		}
 	} else {
 		fmt.Println(tmpPath)

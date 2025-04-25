@@ -1,16 +1,21 @@
 PREVIOUS_TAG ?= $(shell git tag -l | tail -n 1)
-TAG=v0.1.2
+TAG=v0.1.4
 
-.PHONY: build bump tag release
+.PHONY: build test bump tag release
 
 build:
 	mkdir -p dist
 	go build -o dist/bootstrap .
 
+test:
+	go test -v ./...
+
 bump:
 	gsed -i "s/$(PREVIOUS_TAG)/$(TAG)/g" README.md
+	git commit -m "Update README" README.md
 
 tag: bump
+	git diff --exit-code || (echo "Error: uncommitted changes detected" && exit 1)
 	git tag -a $(TAG) -m "Release $(TAG)"
 	git push origin $(TAG)
 
