@@ -168,18 +168,21 @@ func main() {
 	}
 
 	if *execFlag {
+		var exitStatus int
 		if err := executeFile(tmpPath); err != nil {
 			fmt.Fprintf(os.Stderr, "Error executing file: %v\n", err)
-			os.Exit(1)
+			exitStatus = 1
 		}
 
 		if *postExecFlag == "shutdown" {
 			fmt.Println("System will shutdown in 20 seconds...")
 			if err := shutdownSystem(time.Duration(20) * time.Second); err != nil {
 				fmt.Fprintf(os.Stderr, "Error initiating shutdown: %v\n", err)
-				os.Exit(1)
+				exitStatus = 1
 			}
 		}
+
+		os.Exit(exitStatus)
 	} else {
 		fmt.Println(tmpPath)
 	}
