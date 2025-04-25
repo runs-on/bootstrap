@@ -27,7 +27,7 @@ jobs:
           - goos: windows 
             goarch: amd64
             # optimized for echo %PROCESSOR_ARCHITECTURE%
-            asset_name: bootstrap-${{ github.event.release.tag_name }}-windows-AMD64.exe
+            asset_name: bootstrap-${{ github.event.release.tag_name }}-windows-AMD64
     steps:
       - uses: actions/checkout@v4
       - uses: wangyoucao577/go-release-action@8dbc9990292b456ae78e728c7cf7b857b821faac
