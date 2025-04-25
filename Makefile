@@ -1,5 +1,5 @@
 PREVIOUS_TAG ?= $(shell git tag -l | tail -n 1)
-TAG=v0.1.4
+TAG=v0.1.5
 
 .PHONY: build test bump tag release
 
@@ -12,7 +12,9 @@ test:
 
 bump:
 	gsed -i "s/$(PREVIOUS_TAG)/$(TAG)/g" README.md
-	git diff --exit-code README.md || (git commit -m "Update README" README.md && git push)
+	git diff --exit-code README.md || (git commit -m "Update README" README.md)
+	git diff --exit-code Makefile || (git commit -m "Update Makefile" Makefile)
+	git push origin main
 
 tag: bump
 	git diff --exit-code || (echo "Error: uncommitted changes detected" && exit 1)
