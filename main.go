@@ -8,10 +8,13 @@ import (
 	"net/url"
 	"os"
 	"os/exec"
+	"os/signal"
 	"path/filepath"
 	"runtime"
 	"strings"
 	"time"
+
+	"bootstrap/internal/s3client"
 
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
@@ -58,6 +61,28 @@ func executeFile(path string) error {
 
 func main() {
 	ctx := context.Background()
+
+	// Create cancellable context for signal handling
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	// Setup signal handling
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, os.Interrupt)
+
+	// Create temp file path holder
+	var tmpPath string
+
+	// Goroutine for signal handling
+	go func() {
+		<-sigChan
+		if tmpPath != "" {
+			os.Remove(tmpPath)
+		}
+		cancel()
+		os.Exit(1)
+	}()
+
 	execFlag := flag.Bool("exec", false, "Execute the downloaded file")
 	flag.Parse()
 
@@ -75,24 +100,21 @@ func main() {
 
 	cfg, err := config.LoadDefaultConfig(ctx)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Unable to load SDK config: %v\n", err)
+		fmt.Fprintf(os.Stderr, "Unable to load AWS config: %v\n", err)
 		os.Exit(1)
 	}
 
 	client := s3.NewFromConfig(cfg)
 
-	ctxDownload, cancel := context.WithTimeout(ctx, 30*time.Second)
-	defer cancel()
+	ctxDownload, cancelDownload := context.WithTimeout(ctx, 30*time.Second)
+	defer cancelDownload()
 
-	result, err := client.GetObject(ctxDownload, &s3.GetObjectInput{
-		Bucket: &bucket,
-		Key:    &key,
-	})
+	result, err := s3client.Download(ctxDownload, client, bucket, key)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error getting object from S3: %v\n", err)
+		fmt.Fprintf(os.Stderr, "%v\n", err)
 		os.Exit(1)
 	}
-	defer result.Body.Close()
+	defer result.Close()
 
 	// Create temp file with original extension if possible
 	ext := filepath.Ext(key)
@@ -101,7 +123,18 @@ func main() {
 		fmt.Fprintf(os.Stderr, "Error creating temporary file: %v\n", err)
 		os.Exit(1)
 	}
-	tmpPath := tmpFile.Name()
+	tmpPath = tmpFile.Name()
+
+	// Ensure cleanup of file if exec flag is set
+	if *execFlag {
+		defer os.Remove(tmpPath)
+	}
+
+	if _, err := io.Copy(tmpFile, result); err != nil {
+		fmt.Fprintf(os.Stderr, "Error copying S3 object to file: %v\n", err)
+		os.Exit(1)
+	}
+	tmpFile.Close()
 
 	// Make file executable on Unix systems
 	if runtime.GOOS != "windows" {
@@ -110,12 +143,6 @@ func main() {
 			os.Exit(1)
 		}
 	}
-
-	if _, err := io.Copy(tmpFile, result.Body); err != nil {
-		fmt.Fprintf(os.Stderr, "Error copying S3 object to file: %v\n", err)
-		os.Exit(1)
-	}
-	tmpFile.Close()
 
 	if *execFlag {
 		if err := executeFile(tmpPath); err != nil {
