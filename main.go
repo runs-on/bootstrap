@@ -157,7 +157,6 @@ func main() {
 		fmt.Fprintf(os.Stderr, "Error copying S3 object to file: %v\n", err)
 		os.Exit(1)
 	}
-	tmpFile.Close()
 
 	// Make file executable on Unix systems
 	if runtime.GOOS != "windows" {
@@ -166,6 +165,8 @@ func main() {
 			os.Exit(1)
 		}
 	}
+
+	tmpFile.Close()
 
 	if *execFlag {
 		var exitStatus int
