@@ -12,7 +12,7 @@ test:
 
 bump:
 	gsed -i "s/$(PREVIOUS_TAG)/$(TAG)/g" README.md
-	git commit -m "Update README" README.md
+	git diff --exit-code README.md || (git commit -m "Update README" README.md && git push)
 
 tag: bump
 	git diff --exit-code || (echo "Error: uncommitted changes detected" && exit 1)
