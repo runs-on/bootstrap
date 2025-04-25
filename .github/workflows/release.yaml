@@ -19,15 +19,15 @@ jobs:
           - goos: linux
             goarch: amd64
             # optimized for uname -i
-            asset_name: bootstrap-linux-x86_64
+            asset_name: bootstrap-${{ github.event.release.tag_name }}-linux-x86_64
           - goos: linux
             goarch: arm64
             # optimized for uname -i
-            asset_name: bootstrap-linux-aarch64
+            asset_name: bootstrap-${{ github.event.release.tag_name }}-linux-aarch64
           - goos: windows 
             goarch: amd64
             # optimized for echo %PROCESSOR_ARCHITECTURE%
-            asset_name: bootstrap-windows-AMD64.exe
+            asset_name: bootstrap-${{ github.event.release.tag_name }}-windows-AMD64.exe
     steps:
       - uses: actions/checkout@v4
       - uses: wangyoucao577/go-release-action@8dbc9990292b456ae78e728c7cf7b857b821faac
