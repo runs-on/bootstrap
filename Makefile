@@ -1,5 +1,5 @@
 PREVIOUS_TAG ?= $(shell git tag -l | tail -n 1)
-TAG=v0.1.9
+TAG=v0.1.10
 
 .PHONY: build test bump tag release
 
