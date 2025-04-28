@@ -3,8 +3,10 @@ package main
 import (
 	"context"
 	"io"
+	"os"
 	"strings"
 	"testing"
+	"time"
 
 	"bootstrap/internal/s3client"
 
@@ -141,5 +143,33 @@ func TestExecuteFile(t *testing.T) {
 	err := executeFile("nonexistent-file")
 	if err == nil {
 		t.Error("expected error for nonexistent file, got nil")
+	}
+}
+
+func TestShutdownSystemDebug(t *testing.T) {
+	// capture stdout
+	r, w, _ := os.Pipe()
+	origStdout := os.Stdout
+	os.Stdout = w
+
+	done := make(chan struct{})
+	go func() {
+		// should return quickly and not actually shutdown
+		err := shutdownSystem(10*time.Millisecond, true)
+		if err != nil {
+			t.Errorf("expected nil error in debug mode, got %v", err)
+		}
+		w.Close()
+		done <- struct{}{}
+	}()
+
+	// read output
+	var out strings.Builder
+	io.Copy(&out, r)
+	<-done
+	os.Stdout = origStdout
+
+	if !strings.Contains(out.String(), "Debug: Would execute command:") {
+		t.Errorf("expected debug output, got: %q", out.String())
 	}
 }
