@@ -9,6 +9,6 @@ You can download the binaries for your platform (Linux, Windows) from the [Relea
 Example (Linux AMD64):
 
 ```
-curl "https://github.com/runs-on/bootstrap/releases/download/v0.1.9/bootstrap-v0.1.9-linux-amd64.tar.gz" -Lo- | tar -xvz
+curl "https://github.com/runs-on/bootstrap/releases/download/v0.1.10/bootstrap-v0.1.10-linux-amd64.tar.gz" -Lo- | tar -xvz
 ./bootstrap --help
 ```
