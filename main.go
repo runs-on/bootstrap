@@ -59,7 +59,7 @@ func executeFile(path string) error {
 	return cmd.Run()
 }
 
-func shutdownSystem(duration time.Duration) error {
+func shutdownSystem(duration time.Duration, debug bool) error {
 	var cmd *exec.Cmd
 	time.Sleep(duration)
 	switch runtime.GOOS {
@@ -67,6 +67,10 @@ func shutdownSystem(duration time.Duration) error {
 		cmd = exec.Command("shutdown", "/s", "/t", "0")
 	default: // Linux and others
 		cmd = exec.Command("sudo", "shutdown", "-h", "now")
+	}
+	if debug {
+		fmt.Printf("Debug: Would execute command: %v\n", cmd.Args)
+		return nil
 	}
 	return cmd.Run()
 }
@@ -97,6 +101,7 @@ func main() {
 
 	execFlag := flag.Bool("exec", false, "Execute the downloaded file")
 	postExecFlag := flag.String("post-exec", "", "Action to take after execution (only used with --exec). Valid values: shutdown")
+	debugFlag := flag.Bool("debug", false, "Debug mode - skips post-exec actions")
 	flag.Parse()
 
 	if *postExecFlag != "" && !*execFlag {
@@ -177,7 +182,7 @@ func main() {
 
 		if *postExecFlag == "shutdown" {
 			fmt.Println("System will shutdown in 20 seconds...")
-			if err := shutdownSystem(time.Duration(20) * time.Second); err != nil {
+			if err := shutdownSystem(time.Duration(20)*time.Second, *debugFlag); err != nil {
 				fmt.Fprintf(os.Stderr, "Error initiating shutdown: %v\n", err)
 				exitStatus = 1
 			}
