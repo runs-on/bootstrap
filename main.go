@@ -145,8 +145,7 @@ func main() {
 	defer result.Close()
 
 	// Create temp file with original extension if possible
-	ext := filepath.Ext(key)
-	tmpFile, err := os.CreateTemp("", "s3-download-*"+ext)
+	tmpFile, err := os.CreateTemp("", "bootstrap-*-"+filepath.Base(key))
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error creating temporary file: %v\n", err)
 		os.Exit(1)
