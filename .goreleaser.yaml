@@ -22,11 +22,13 @@ builds:
       - -s -w
 
 archives:
-  - format: binary
+  - format_overrides:
+      - goos: windows
+        format: zip
     name_template: >-
       {{ .ProjectName }}-{{ .Tag }}-
       {{- if eq .Os "linux" }}{{ .Os }}-{{ if eq .Arch "amd64" }}x86_64{{ else }}{{ .Arch }}{{ end }}{{ end }}
-      {{- if eq .Os "windows" }}{{ .Os }}-{{ .Arch | upper }}{{ end }}
+      {{- if eq .Os "windows" }}{{ .Os }}-{{ if eq .Arch "amd64" }}AMD64{{ else }}{{ .Arch }}{{ end }}{{ end }}
 
 upx:
   - enabled: true
