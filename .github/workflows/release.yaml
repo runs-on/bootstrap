@@ -12,30 +12,17 @@ jobs:
   release:
     name: Release Go Binary
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - goos: linux
-            goarch: amd64
-            # optimized for uname -i
-            asset_name: bootstrap-${{ github.event.release.tag_name }}-linux-x86_64
-          - goos: linux
-            goarch: arm64
-            # optimized for uname -i
-            asset_name: bootstrap-${{ github.event.release.tag_name }}-linux-aarch64
-          - goos: windows 
-            goarch: amd64
-            # optimized for echo %PROCESSOR_ARCHITECTURE%
-            asset_name: bootstrap-${{ github.event.release.tag_name }}-windows-AMD64
     steps:
       - uses: actions/checkout@v4
-      - uses: wangyoucao577/go-release-action@8dbc9990292b456ae78e728c7cf7b857b821faac
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          goos: ${{ matrix.goos }}
-          goarch: ${{ matrix.goarch }}
-          binary_name: bootstrap
-          executable_compression: "upx -1"
-          compress_assets: "OFF"
-          asset_name: ${{ matrix.asset_name }}
+          fetch-depth: 0
+      - uses: actions/setup-go@v5
+        with:
+          go-version: stable
+      - uses: goreleaser/goreleaser-action@v6
+        with:
+          distribution: goreleaser
+          version: '~> v2'
+          args: release --clean
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
