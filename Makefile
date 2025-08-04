@@ -1,5 +1,5 @@
 PREVIOUS_TAG ?= $(shell git tag --sort=-v:refname | head -n 1)
-TAG=v0.1.15
+TAG=v0.1.16
 
 .PHONY: build test bump tag release
 
