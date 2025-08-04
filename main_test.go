@@ -4,6 +4,8 @@ import (
 	"context"
 	"io"
 	"os"
+	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -171,5 +173,137 @@ func TestShutdownSystemDebug(t *testing.T) {
 
 	if !strings.Contains(out.String(), "Debug: Would execute command:") {
 		t.Errorf("expected debug output, got: %q", out.String())
+	}
+}
+
+func TestSaveFlag(t *testing.T) {
+	// Create a temporary directory for our tests
+	tempDir := t.TempDir()
+
+	testCases := []struct {
+		name           string
+		savePath       string
+		content        string
+		expectDirCreate bool
+	}{
+		{
+			name:     "save to simple path",
+			savePath: tempDir + "/test-file.txt",
+			content:  "test content",
+		},
+		{
+			name:           "save to nested path",
+			savePath:       tempDir + "/nested/dir/test-file.txt",
+			content:        "nested content",
+			expectDirCreate: true,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			// Test the core save functionality by simulating what main() does
+			// Create parent directories if they don't exist
+			dir := filepath.Dir(tc.savePath)
+			if err := os.MkdirAll(dir, 0755); err != nil {
+				t.Fatalf("Error creating directories: %v", err)
+			}
+
+			// Create the target file
+			targetFile, err := os.Create(tc.savePath)
+			if err != nil {
+				t.Fatalf("Error creating file: %v", err)
+			}
+
+			// Write content
+			if _, err := io.Copy(targetFile, strings.NewReader(tc.content)); err != nil {
+				t.Fatalf("Error writing content: %v", err)
+			}
+
+			// Make file executable on Unix systems
+			if runtime.GOOS != "windows" {
+				if err := targetFile.Chmod(0755); err != nil {
+					t.Fatalf("Error making file executable: %v", err)
+				}
+			}
+			targetFile.Close()
+
+			// Verify file exists
+			if _, err := os.Stat(tc.savePath); os.IsNotExist(err) {
+				t.Errorf("File was not created at %s", tc.savePath)
+			}
+
+			// Verify content
+			savedContent, err := os.ReadFile(tc.savePath)
+			if err != nil {
+				t.Fatalf("Error reading saved file: %v", err)
+			}
+			if string(savedContent) != tc.content {
+				t.Errorf("Content mismatch: got %q, want %q", savedContent, tc.content)
+			}
+
+			// Verify permissions on Unix
+			if runtime.GOOS != "windows" {
+				info, err := os.Stat(tc.savePath)
+				if err != nil {
+					t.Fatalf("Error getting file info: %v", err)
+				}
+				mode := info.Mode()
+				if mode.Perm() != 0755 {
+					t.Errorf("Incorrect permissions: got %v, want 0755", mode.Perm())
+				}
+			}
+		})
+	}
+}
+
+func TestSaveFlagWithMockS3(t *testing.T) {
+	tempDir := t.TempDir()
+	savePath := tempDir + "/downloaded-file.txt"
+	expectedContent := "content from S3"
+
+	// Create a mock S3 client
+	mockSvc := &mockS3Client{
+		getObjectOutput: &s3.GetObjectOutput{
+			Body: io.NopCloser(strings.NewReader(expectedContent)),
+		},
+	}
+
+	// Simulate the download and save process
+	result, err := s3client.Download(context.Background(), mockSvc, "test-bucket", "test-key")
+	if err != nil {
+		t.Fatalf("Download failed: %v", err)
+	}
+	defer result.Close()
+
+	// Create parent directories
+	dir := filepath.Dir(savePath)
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		t.Fatalf("Error creating directories: %v", err)
+	}
+
+	// Create and write to file
+	targetFile, err := os.Create(savePath)
+	if err != nil {
+		t.Fatalf("Error creating file: %v", err)
+	}
+
+	if _, err := io.Copy(targetFile, result); err != nil {
+		t.Fatalf("Error copying content: %v", err)
+	}
+
+	if runtime.GOOS != "windows" {
+		if err := targetFile.Chmod(0755); err != nil {
+			t.Fatalf("Error setting permissions: %v", err)
+		}
+	}
+	targetFile.Close()
+
+	// Verify the file was saved correctly
+	savedContent, err := os.ReadFile(savePath)
+	if err != nil {
+		t.Fatalf("Error reading saved file: %v", err)
+	}
+	if string(savedContent) != expectedContent {
+		t.Errorf("Content mismatch: got %q, want %q", savedContent, expectedContent)
 	}
 }

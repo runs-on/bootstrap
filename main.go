@@ -99,6 +99,7 @@ func main() {
 		os.Exit(1)
 	}()
 
+	saveFlag := flag.String("save", "", "Save the downloaded file to the specified path instead of a temporary location")
 	execFlag := flag.Bool("exec", false, "Execute the downloaded file")
 	postExecFlag := flag.String("post-exec", "", "Action to take after execution (only used with --exec). Valid values: shutdown")
 	debugFlag := flag.Bool("debug", false, "Debug mode - skips post-exec actions")
@@ -116,7 +117,7 @@ func main() {
 
 	args := flag.Args()
 	if len(args) != 1 {
-		fmt.Fprintf(os.Stderr, "Usage: %s [--exec] s3://bucket/path/to/file\n", os.Args[0])
+		fmt.Fprintf(os.Stderr, "Usage: %s [--exec] [--save path] s3://bucket/path/to/file\n", os.Args[0])
 		os.Exit(1)
 	}
 
@@ -144,37 +145,60 @@ func main() {
 	}
 	defer result.Close()
 
-	// Create temp file with original extension if possible
-	tmpFile, err := os.CreateTemp("", "bootstrap-*-"+filepath.Base(key))
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error creating temporary file: %v\n", err)
-		os.Exit(1)
-	}
-	tmpPath = tmpFile.Name()
+	var targetPath string
+	var targetFile *os.File
 
-	// Ensure cleanup of file if exec flag is set
-	if *execFlag {
-		defer os.Remove(tmpPath)
+	if *saveFlag != "" {
+		// Use the specified save path
+		targetPath = *saveFlag
+
+		// Create parent directories if they don't exist
+		dir := filepath.Dir(targetPath)
+		if err := os.MkdirAll(dir, 0755); err != nil {
+			fmt.Fprintf(os.Stderr, "Error creating directories: %v\n", err)
+			os.Exit(1)
+		}
+
+		// Create the target file
+		targetFile, err = os.Create(targetPath)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error creating file: %v\n", err)
+			os.Exit(1)
+		}
+	} else {
+		// Create temp file with original extension if possible
+		targetFile, err = os.CreateTemp("", "bootstrap-*-"+filepath.Base(key))
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error creating temporary file: %v\n", err)
+			os.Exit(1)
+		}
+		targetPath = targetFile.Name()
+		tmpPath = targetPath // Set tmpPath for cleanup handling
+
+		// Ensure cleanup of file if exec flag is set
+		if *execFlag {
+			defer os.Remove(targetPath)
+		}
 	}
 
-	if _, err := io.Copy(tmpFile, result); err != nil {
+	if _, err := io.Copy(targetFile, result); err != nil {
 		fmt.Fprintf(os.Stderr, "Error copying S3 object to file: %v\n", err)
 		os.Exit(1)
 	}
 
 	// Make file executable on Unix systems
 	if runtime.GOOS != "windows" {
-		if err := tmpFile.Chmod(0755); err != nil {
+		if err := targetFile.Chmod(0755); err != nil {
 			fmt.Fprintf(os.Stderr, "Error making file executable: %v\n", err)
 			os.Exit(1)
 		}
 	}
 
-	tmpFile.Close()
+	targetFile.Close()
 
 	if *execFlag {
 		var exitStatus int
-		if err := executeFile(tmpPath); err != nil {
+		if err := executeFile(targetPath); err != nil {
 			fmt.Fprintf(os.Stderr, "Error executing file: %v\n", err)
 			exitStatus = 1
 		}
@@ -189,6 +213,6 @@ func main() {
 
 		os.Exit(exitStatus)
 	} else {
-		fmt.Println(tmpPath)
+		fmt.Println(targetPath)
 	}
 }
