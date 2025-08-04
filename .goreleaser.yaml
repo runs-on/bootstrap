@@ -26,7 +26,7 @@ archives:
     name_template: >-
       {{ .ProjectName }}-{{ .Tag }}-
       {{- if eq .Os "linux" }}{{ .Os }}-{{ if eq .Arch "amd64" }}x86_64{{ else if eq .Arch "arm64" }}aarch64{{ else }}{{ .Arch }}{{ end }}{{ end }}
-      {{- if eq .Os "windows" }}{{ .Os }}-{{ if eq .Arch "amd64" }}AMD64{{ else }}{{ .Arch }}{{ end }}.exe{{ end }}
+      {{- if eq .Os "windows" }}{{ .Os }}-{{ if eq .Arch "amd64" }}AMD64{{ else }}{{ .Arch }}{{ end }}{{ end }}
 
 upx:
   - enabled: true
